@@ -2,6 +2,7 @@ module proc_status_vm
   use iso_c_binding
   use shr_log_mod, only: shr_log_getLogUnit
   use shr_sys_mod, only: shr_sys_flush
+  use shr_sys_mod, only: shr_sys_abort
   implicit none
   private
   public :: VmStatusInfo, get_vm_status, prt_vm_status
@@ -81,10 +82,15 @@ subroutine get_vm_status(info)
   ! Init all fields to -1
   info = VmStatusInfo()
 
-  open(newunit=punit, file="/proc/self/status", status="old", action="read")
+  open(newunit=punit, file="/proc/self/status", status="old", action="read", iostat=ios)
+  if (ios /= 0) then
+     call shr_sys_abort("Error in opening /proc/self/smaps")
+  end if
   do
     read(punit, '(A)', iostat=ios) line
-    if (ios /= 0) exit
+    if (ios /= 0) then
+       call shr_sys_abort("Error in reading line from /proc/self/smaps")
+    end if
 
     if (index(line, 'Vm') == 1) then
       colon_pos = index(line, ':')
@@ -119,7 +125,6 @@ end subroutine get_vm_status
 
 subroutine get_smaps_status()
 
-  use shr_sys_mod, only : shr_sys_abort
   integer, parameter :: maxlen = 512
   character(len=maxlen) :: line
   character(len=32) :: label
@@ -142,7 +147,9 @@ subroutine get_smaps_status()
   write(iulog,*) 'get_smaps_status: point #1'
   do
     read(punit, '(A)', iostat=ios) line
-    if (ios /= 0) exit
+    if (ios /= 0) then
+       call shr_sys_abort("Error in reading line from /proc/self/smaps")
+    end if
 
     ! Check for memory region header (starts with address range)
     if (index(line, '-') > 0 .and. index(line, ' r') > 0) then
