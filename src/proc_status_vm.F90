@@ -38,21 +38,6 @@ subroutine shr_malloc_trim()
 
 end subroutine shr_malloc_trim
 
-#if 0
-subroutine jemalloc_print_stats
-    interface
-        subroutine malloc_stats_print(write_cb, cbopaque, opts) bind(C, name="malloc_stats_print")
-            import :: c_ptr
-            type(c_ptr), value :: write_cb
-            type(c_ptr), value :: cbopaque
-            type(c_ptr), value :: opts
-        end subroutine
-    end interface
-
-    call malloc_stats_print(c_null_ptr, c_null_ptr, c_null_ptr)
-end subroutine jemalloc_print_stats
-#endif
-
 subroutine shr_count_malloc(msg)
   character(len=*), intent(in) :: msg
 
@@ -97,14 +82,11 @@ subroutine get_vm_status(info)
 
     if (index(line, 'Vm') == 1) then
       colon_pos = index(line, ':')
-      !print *,'colon_pos: ',colon_pos
       if (colon_pos > 0) then
         tag = adjustl(line(1:colon_pos-1))
         ! Extract value as a string and parse it
         value_str = adjustl(scan_int_part(line(colon_pos+1:)))
-        !print *,'value_str: ',value_str
         read(value_str, *, iostat=ios) val
-        !print *,'val: ',val
         if (ios /= 0) cycle
 
         select case (trim(tag))
@@ -152,7 +134,6 @@ subroutine get_smaps_status()
   print *,'get_smaps_status: point #1'
   do
     read(88, '(A)', iostat=ios) line
-    !print *,'line: (',line,')'
     if (ios /= 0) exit
 
     ! Check for memory region header (starts with address range)
@@ -169,7 +150,6 @@ subroutine get_smaps_status()
       size_kb = -1
       rss_kb = -1
     end if
-    ! print *,line
     if(.not. is_candidate) cycle
 
     ! Extract Size:
@@ -183,7 +163,6 @@ subroutine get_smaps_status()
     end if
 
     ! Once we have both size and rss, compute and print if low usage
-    !print *,'SIZE RSS: ',size_kb, rss_kb
     if (size_kb > 0 .and. rss_kb >= 0) then
       usage = real(rss_kb) / real(size_kb)
       if (usage < threshold .and. size_kb > szThreshold) then
