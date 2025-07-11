@@ -1,5 +1,7 @@
 module proc_status_vm
   use iso_c_binding
+  use shr_log_mod, only: shr_log_getLogUnit
+  use shr_sys_mod, only: shr_sys_flush
   implicit none
   private
   public :: VmStatusInfo, get_vm_status, prt_vm_status
@@ -7,6 +9,7 @@ module proc_status_vm
   public :: shr_malloc_trim
   public :: shr_count_malloc
   integer, parameter :: max_line = 256
+  integer :: iulog    ! Log unit to use
 
   type :: VmStatusInfo
     integer :: VmPeak = -1
@@ -42,7 +45,8 @@ subroutine shr_count_malloc(msg)
   character(len=*), intent(in) :: msg
 
 #ifdef __NVCOMPILER__
-  write (*,*) 'DBG REGION '//trim(msg)//':' 
+  call shr_log_getLogUnit( iulog)
+  write (iulog,*) 'DBG REGION '//trim(msg)//':' 
   call __pgf90_dbg_print_allo()
 #endif
 
@@ -62,7 +66,8 @@ subroutine log_addr(msg, addr, file, line)
   loc_str = ' [' // trim(file) // ':' // trim(line_str) // ']'
 
   ! Log output
-  write(*,'(A,A,A,Z16.16)') trim(msg), trim(loc_str), '  0x', addr
+  call shr_log_getLogUnit( iulog)
+  write(iulog,'(A,A,A,Z16.16)') trim(msg), trim(loc_str), '  0x', addr
 end subroutine log_addr
 
 subroutine get_vm_status(info)
@@ -126,12 +131,13 @@ subroutine get_smaps_status()
   integer :: szThreshold = 16
   logical :: is_candidate
 
+  call shr_log_getLogUnit( iulog)
   open(unit=88, file='/proc/self/smaps', status='old', action='read', iostat=ios)
   if (ios /= 0) then
-    print *, "Failed to open /proc/self/smaps"
+    write(iulog,*) "Failed to open /proc/self/smaps"
     call shr_sys_abort("get_smaps_status: Failed to open /proc/self/smaps")
   end if
-  print *,'get_smaps_status: point #1'
+  write(iulog,*) 'get_smaps_status: point #1'
   do
     read(88, '(A)', iostat=ios) line
     if (ios /= 0) exit
@@ -166,7 +172,7 @@ subroutine get_smaps_status()
     if (size_kb > 0 .and. rss_kb >= 0) then
       usage = real(rss_kb) / real(size_kb)
       if (usage < threshold .and. size_kb > szThreshold) then
-        print '(A,1X,A,1X,F5.1,A,I8,A)', 'Low usage region:', trim(addr_range), 100.0*usage, '% used of ',size_kb,' kB'
+        write(iulog,'(A,1X,A,1X,F5.1,A,I8,A)') 'Low usage region:', trim(addr_range), 100.0*usage, '% used of ',size_kb,' kB'
       end if
       size_kb = -1
       rss_kb = -1
@@ -174,6 +180,7 @@ subroutine get_smaps_status()
   end do
 
   close(88)
+  call shr_sys_flush(iulog)
 
 end subroutine get_smaps_status
 
@@ -204,13 +211,15 @@ subroutine prt_vm_status(location)
   write(vmPMD_c,'(I10)') meminfo%VmPMD
   write(vmSwap_c,'(I10)') meminfo%VmSwap
 
-  print '(13A10)', "VmPeak",  "VmSize",  "VmLck",  "VmPin", &
+  call shr_log_getLogUnit( iulog)
+  write(iulog,'(13A10)'), "VmPeak",  "VmSize",  "VmLck",  "VmPin", &
           "VmHWM","VmRSS","VmData","VmStk","VmExe","VmLib", &
           "VmPTE","vmPMD","VmSwap"
   ! Print values (space-separated, matching order)
-  print '(13A10,1x,A)', VmPeak_c,VmSize_c,VmLck_c,VmPin_c, &
+  write(iulog,'(13A10,1x,A)'), VmPeak_c,VmSize_c,VmLck_c,VmPin_c, &
           VmHWM_c,VmRSS_c,VmData_c,VmStk_c,VmExe_c,VmLib_c, &
           VmPTE_c,vmPMD_c,VmSwap_c,"[VmStatus] " // trim(location)
+  call shr_sys_flush(iulog)
 
 end subroutine prt_vm_status 
 
