@@ -131,6 +131,7 @@ end subroutine get_vm_status
 
 subroutine get_smaps_status()
 
+  use shr_sys_mod, only : shr_sys_abort
   integer, parameter :: maxlen = 512
   character(len=maxlen) :: line
   character(len=32) :: label
@@ -146,7 +147,7 @@ subroutine get_smaps_status()
   open(unit=88, file='/proc/self/smaps', status='old', action='read', iostat=ios)
   if (ios /= 0) then
     print *, "Failed to open /proc/self/smaps"
-    stop 1
+    call shr_sys_abort("get_smaps_status: Failed to open /proc/self/smaps")
   end if
   print *,'get_smaps_status: point #1'
   do
