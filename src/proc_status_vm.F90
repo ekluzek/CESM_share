@@ -76,13 +76,14 @@ subroutine get_vm_status(info)
   character(len=max_line) :: line, tag
   integer(int32) :: val, ios, colon_pos
   character(len=16) :: value_str
+  integer :: punit   ! unit for proc status file
 
   ! Init all fields to -1
   info = VmStatusInfo()
 
-  open(unit=89, file="/proc/self/status", status="old", action="read")
+  open(newunit=punit, file="/proc/self/status", status="old", action="read")
   do
-    read(89, '(A)', iostat=ios) line
+    read(punit, '(A)', iostat=ios) line
     if (ios /= 0) exit
 
     if (index(line, 'Vm') == 1) then
@@ -113,7 +114,7 @@ subroutine get_vm_status(info)
       end if
     end if
   end do
-  close(89)
+  close(punit)
 end subroutine get_vm_status
 
 subroutine get_smaps_status()
@@ -130,16 +131,17 @@ subroutine get_smaps_status()
   real, parameter :: threshold = 0.75  ! 10% usage threshold
   integer :: szThreshold = 16
   logical :: is_candidate
+  integer :: punit   ! unit for proc smaps file
 
   call shr_log_getLogUnit( iulog)
-  open(unit=88, file='/proc/self/smaps', status='old', action='read', iostat=ios)
+  open(newunit=punit, file='/proc/self/smaps', status='old', action='read', iostat=ios)
   if (ios /= 0) then
     write(iulog,*) "Failed to open /proc/self/smaps"
     call shr_sys_abort("get_smaps_status: Failed to open /proc/self/smaps")
   end if
   write(iulog,*) 'get_smaps_status: point #1'
   do
-    read(88, '(A)', iostat=ios) line
+    read(punit, '(A)', iostat=ios) line
     if (ios /= 0) exit
 
     ! Check for memory region header (starts with address range)
@@ -179,7 +181,7 @@ subroutine get_smaps_status()
     end if
   end do
 
-  close(88)
+  close(punit)
   call shr_sys_flush(iulog)
 
 end subroutine get_smaps_status
