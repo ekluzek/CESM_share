@@ -88,10 +88,12 @@ subroutine get_vm_status(info)
   end if
   do
     read(punit, '(A)', iostat=ios) line
-    if (ios /= 0) then
+    if (ios > 0) then
+       write(iulog,*) "Error in read: ", line, ios
        call shr_sys_abort("Error in reading line from /proc/self/smaps")
+    else if (ios < 0)then
+       exit
     end if
-
     if (index(line, 'Vm') == 1) then
       colon_pos = index(line, ':')
       if (colon_pos > 0) then
@@ -99,7 +101,12 @@ subroutine get_vm_status(info)
         ! Extract value as a string and parse it
         value_str = adjustl(scan_int_part(line(colon_pos+1:)))
         read(value_str, *, iostat=ios) val
-        if (ios /= 0) cycle
+        if (ios < 0)then
+           cycle
+        else if (ios > 0) then
+            write(iulog,*) "Error in read: ", val, ios
+            call shr_sys_abort("Error in reading line from /proc/self/smaps")
+        end if
 
         select case (trim(tag))
         case ("VmPeak")         ; info%VmPeak = val
@@ -147,8 +154,11 @@ subroutine get_smaps_status()
   write(iulog,*) 'get_smaps_status: point #1'
   do
     read(punit, '(A)', iostat=ios) line
-    if (ios /= 0) then
+    if (ios > 0) then
+       write(iulog,*) "Error in read: ", line, ios
        call shr_sys_abort("Error in reading line from /proc/self/smaps")
+    else if (ios < 0)then
+       exit
     end if
 
     ! Check for memory region header (starts with address range)
